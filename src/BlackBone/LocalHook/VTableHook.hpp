@@ -10,9 +10,9 @@ template<typename Fn, class C = NoClass>
 class VTableDetour : public Detour<Fn, C>
 {
 public:
-    typedef typename HookHandler<Fn, C>::type type;
-    typedef typename HookHandler<Fn, C>::hktype hktype;
-    typedef typename HookHandler<Fn, C>::hktypeC hktypeC;
+    using type    = typename HookHandler<Fn, C>::type;
+    using hktype  = typename HookHandler<Fn, C>::hktype;
+    using hktypeC = typename HookHandler<Fn, C>::hktypeC;
 
 public:
     VTableDetour()
@@ -79,7 +79,7 @@ public:
             // Copy VTable
             if (vtableLen != 0)
             {
-                memcpy( this->_buf + 0x300, *ppVtable, vtableLen * sizeof( void* ) );
+                memcpy( this->_buf + 0x300 - sizeof( void* ), (*(void***)ppVtable) - 1, vtableLen * sizeof( void* ) );
             }
             else 
             {
@@ -95,7 +95,7 @@ public:
                     vptr = (*(uintptr_t**)ppVtable)[vtableLen];
                     if (vptr < imageBase || vptr >= imageBase + imageSzie)
                     {
-                        memcpy( this->_buf + 0x300, *ppVtable, vtableLen * sizeof( void* ) );
+                        memcpy( this->_buf + 0x300 - sizeof( void* ), (*(void***)ppVtable) - 1, vtableLen * sizeof( void* ) );
                         break;
                     }
                 }

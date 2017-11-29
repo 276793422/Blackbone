@@ -45,7 +45,7 @@ struct exportData
 class ProcessModules
 {
 public:
-    typedef std::unordered_map<std::pair<std::wstring, eModType>, ModuleDataPtr> mapModules;
+    using mapModules = std::unordered_map<std::pair<std::wstring, eModType>, ModuleDataPtr> ;
 
 public:
     BLACKBONE_API ProcessModules( class Process& proc );
@@ -127,6 +127,14 @@ public:
     );
 
     /// <summary>
+    /// Get export address. Forwarded exports will be automatically resolved if forward module is present
+    /// </summary>
+    /// <param name="modName">Module name to search in</param>
+    /// <param name="name_ord">Function name or ordinal</param>
+    /// <returns>Export info. If failed procAddress field is 0</returns>
+    BLACKBONE_API call_result_t<exportData> GetExport( const std::wstring& modName, const char* name_ord );
+
+    /// <summary>
     /// Get export from ntdll
     /// </summary>
     /// <param name="name_ord">Function name or ordinal</param>
@@ -178,13 +186,14 @@ public:
     /// <param name="mod">Module to unlink</param>
     /// <returns>true on success</returns>
     BLACKBONE_API bool Unlink( const ModuleDataPtr& mod );
+    BLACKBONE_API bool Unlink( const ModuleData& mod );
 
     /// <summary>
     /// Store manually mapped module in module list
     /// </summary>
     /// <param name="mod">Module data</param>
     /// <returns>Module info</returns>
-    BLACKBONE_API ModuleDataPtr AddManualModule( const ModuleData& mod );
+    BLACKBONE_API ModuleDataPtr AddManualModule( ModuleData mod );
 
     /// <summary>
     /// Remove module from module list

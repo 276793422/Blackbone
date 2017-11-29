@@ -102,6 +102,21 @@ public:
     BLACKBONE_API MemBlock( class ProcessMemory* mem, ptr_t ptr, size_t size, DWORD prot, bool own = true, bool physical = false );
 
     /// <summary>
+    /// Move ctor
+    /// </summary>
+    /// <param name="rhs">Move from</param>
+    BLACKBONE_API MemBlock( MemBlock&& rhs ) { _pImpl.swap( rhs._pImpl ); }
+    BLACKBONE_API MemBlock& operator = ( MemBlock&& rhs )
+    { 
+        // Self assign
+        if (_pImpl == rhs._pImpl)
+            return *this;
+
+        _pImpl.swap( rhs._pImpl ); 
+        return *this;
+    }
+
+    /// <summary>
     /// Allocate new memory block
     /// </summary>
     /// <param name="process">Process memory routines</param>
@@ -171,7 +186,7 @@ public:
     /// <param name="offset">Data offset in block</param>
     /// <param name="def_val">Defult return value if read has failed</param>
     /// <returns>Read data</returns>
-    template<class T>
+    template<typename T>
     T Read( uintptr_t offset, const T& def_val )
     {
         T res = def_val;
@@ -185,7 +200,7 @@ public:
     /// <param name="offset">Data offset in block</param>
     /// <param name="def_val">Read data</param>
     /// <returns>Status code</returns>
-    template<class T>
+    template<typename T>
     NTSTATUS Read( size_t offset, T& val )
     {
         return Read( offset, sizeof( val ), &val );
@@ -197,7 +212,7 @@ public:
     /// <param name="offset">Offset in block</param>
     /// <param name="data">Data to write</param>
     /// <returns>Status</returns>
-    template<class T>
+    template<typename T>
     NTSTATUS Write( uintptr_t offset, const T& data )
     {
         return Write( offset, sizeof( data ), &data );
@@ -217,7 +232,7 @@ public:
     /// Get memory pointer
     /// </summary>
     /// <returns>Memory pointer</returns>
-    template< typename T = ptr_t >
+    template<typename T = ptr_t>
     inline T ptr() const { return _pImpl ? (T)_pImpl->_ptr : T( 0 ); }
 
     /// <summary>

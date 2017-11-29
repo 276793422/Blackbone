@@ -71,8 +71,9 @@ public:
     /// Unlink module from Ntdll loader
     /// </summary>
     /// <param name="mod">Module data</param>
+    /// <param name="noThread">Don't create new threads during unlink</param>
     /// <returns>true on success</returns>
-    BLACKBONE_API bool Unlink( const ModuleData& mod );    
+    BLACKBONE_API bool Unlink( const ModuleData& mod, bool noThread = false );
 private:
 
     /// <summary>
@@ -173,8 +174,8 @@ private:
     /// <param name="ptr">node pointer (if nullptr - new dummy node is allocated)</param>
     /// <param name="pModule">Module base address</param>
     /// <returns>Node address</returns>
-    template<typename T, typename T2>
-    ptr_t SetNode( ptr_t ptr, T2 pModule );
+    template<typename T, typename Module>
+    ptr_t SetNode( ptr_t ptr, Module pModule );
 
     /// <summary>
     /// Unlink module from PEB_LDR_DATA
@@ -185,15 +186,13 @@ private:
     ptr_t UnlinkFromLdr( const ModuleData& mod );
 
     /// <summary>
-    /// Remove record from LIST_ENTRY structure
+    /// Finds LDR entry for module
     /// </summary>
-    /// <param name="pListEntry">List to remove from</param>
-    /// <param name="head">List head address.</param>
-    /// <param name="ofst">Offset of link in _LDR_DATA_TABLE_ENTRY_BASE struct</param>
-    /// <param name="baseAddress">Record to remove.</param>
-    /// <returns>Address of removed record</returns>
-    template<typename T> 
-    ptr_t UnlinkListEntry( _LIST_ENTRY_T<T> pListEntry, ptr_t head, uintptr_t ofst, ptr_t baseAddress );
+    /// <param name="moduleBase">Target module base</param>
+    /// <param name="found">Found entry</param>
+    /// <returns>Found LDR entry address</returns>
+    template<typename T>
+    ptr_t FindLdrEntry( module_t moduleBase, _LDR_DATA_TABLE_ENTRY_BASE_T<T>* found = nullptr );
 
     /// <summary>
     ///  Remove record from LIST_ENTRY structure
@@ -207,9 +206,10 @@ private:
     /// </summary>
     /// <param name="mod">Module data</param>
     /// <param name="ldrEntry">Module LDR entry</param>
+    /// <param name="noThread">Don't create new threads during unlink</param>
     /// <returns>Address of removed record</returns>
     template<typename T>
-    ptr_t UnlinkTreeNode( const ModuleData& mod, ptr_t ldrEntry );
+    ptr_t UnlinkTreeNode( const ModuleData& mod, ptr_t ldrEntry, bool noThread = false );
 
     NtLdr( const NtLdr& ) = delete;
     NtLdr& operator =(const NtLdr&) = delete;

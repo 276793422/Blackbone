@@ -17,9 +17,16 @@
 namespace blackbone
 {
 
+enum WorkerThreadMode
+{
+    Worker_None,            // No worker thread
+    Worker_CreateNew,       // Create dedicated worker thread
+    Worker_UseExisting,     // Hijack existing thread
+};
+
 class RemoteExec
 {
-    typedef std::vector<AsmVariant> vecArgs;
+    using vecArgs = std::vector<AsmVariant>;
 
 public:
     BLACKBONE_API RemoteExec( class Process& proc );
@@ -32,13 +39,13 @@ public:
     /// --------------------------------------------------------------------------------------------------------------------------
     /// | Internal return value | Return value |  Last Status code  |  Event handle   |  Space for copied arguments and strings  |
     /// -------------------------------------------------------------------------------------------------------------------------
-    /// |       8/8 bytes       |   8/8 bytes  |      8/8 bytes     |   16/16 bytes   |                                          |
+    /// |       8/8 bytes       |   8/8 bytes  |      8/8 bytes     |    8/8 bytes    |                                          |
     /// --------------------------------------------------------------------------------------------------------------------------
     /// </summary>
-    /// <param name="bThread">Create worker thread</param>
+    /// <param name="mode">Worket thread mode</param>
     /// <param name="bEvent">Create sync event for worker thread</param>
     /// <returns>Status</returns>
-    BLACKBONE_API NTSTATUS CreateRPCEnvironment( bool bThread = true, bool bEvent = true );
+    BLACKBONE_API NTSTATUS CreateRPCEnvironment( WorkerThreadMode mode = Worker_None, bool bEvent = false );
 
     /// <summary>
     /// Create new thread and execute code in it. Wait until execution ends
@@ -122,7 +129,6 @@ public:
         a->mov( asmjit::host::dword_ptr( a->zdx ), a->zax );
     }
 
-#pragma warning(disable : 4127)
     /// <summary>
     /// Retrieve call result
     /// </summary>
@@ -131,17 +137,16 @@ public:
     template<typename T>
     inline NTSTATUS GetCallResult( T& result )
     {
-        if (sizeof( T ) > sizeof( uint64_t ))
+        if constexpr (sizeof( T ) > sizeof( uint64_t ))
         {
-            if (std::is_reference<T>::value)
-                return _userData.Read( _userData.Read<uintptr_t>( RET_OFFSET, 0 ), sizeof( T ), (PVOID)&result );
+            if constexpr (std::is_reference_v<T>)
+                return _userData.Read( _userData.Read<uintptr_t>( RET_OFFSET, 0 ), sizeof( T ), reinterpret_cast<PVOID>(&result) );
             else
-                return _userData.Read( ARGS_OFFSET, sizeof( T ), (PVOID)&result );
+                return _userData.Read( ARGS_OFFSET, sizeof( T ), reinterpret_cast<PVOID>(&result) );
         }
         else
-            return _userData.Read( RET_OFFSET, sizeof( T ), (PVOID)&result );
+            return _userData.Read( RET_OFFSET, sizeof( T ), reinterpret_cast<PVOID>(&result) );
     }
-#pragma warning(default : 4127)
 
     /// <summary>
     /// Retrieve last NTSTATUS code
@@ -161,7 +166,13 @@ public:
     /// Get worker thread
     /// </summary>
     /// <returns></returns>
-    BLACKBONE_API inline ThreadPtr getWorker() { return _hWorkThd; }
+    BLACKBONE_API inline ThreadPtr getWorker() { return _workerThread; }
+
+    /// <summary>
+    /// Get execution thread
+    /// </summary>
+    /// <returns></returns>
+    BLACKBONE_API inline ThreadPtr getExecThread() { return _hijackThread ? _hijackThread : _workerThread; }
 
     /// <summary>
     /// Ge memory routines
@@ -207,7 +218,8 @@ private:
     class ProcessMemory&  _memory;
     class ProcessThreads& _threads;
 
-    ThreadPtr _hWorkThd;        // Worker thread handle
+    ThreadPtr _workerThread;    // Worker thread handle
+    ThreadPtr _hijackThread;    // Thread to use for hijacking  
     HANDLE    _hWaitEvent;      // APC sync event handle
     MemBlock  _workerCode;      // Worker thread address space
     MemBlock  _userCode;        // Codecave for code execution

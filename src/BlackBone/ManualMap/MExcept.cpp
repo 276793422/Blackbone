@@ -209,7 +209,6 @@ uint8_t MExcept::_handler64[] =
 /// <returns>Error code</returns>
 NTSTATUS MExcept::CreateVEH( Process& proc, ModuleData& mod, bool partial )
 {    
-    auto a = AsmFactory::GetAssembler( mod.type );
     uint64_t result = 0;
     auto& mods = proc.modules();
 
@@ -247,11 +246,11 @@ NTSTATUS MExcept::CreateVEH( Process& proc, ModuleData& mod, bool partial )
 
     _pVEHCode = std::move( mem.result() );
 
-    BLACKBONE_TRACE( "ManualMap: Vectored hander: 0x%p\n", _pVEHCode.ptr() );
+    BLACKBONE_TRACE( "ManualMap: Vectored hander: 0x%p", _pVEHCode.ptr() );
 
     auto replaceStub = []( uint8_t* ptr, size_t size, auto oldVal, auto newVal )
     {
-        typedef typename std::add_pointer<decltype(oldVal)>::type ValuePtr;
+        using ValuePtr = std::add_pointer_t<decltype(oldVal)>;
 
         for (uint8_t *pData = ptr; pData < ptr + size - sizeof( oldVal ); pData++)
         {
@@ -304,11 +303,10 @@ NTSTATUS MExcept::CreateVEH( Process& proc, ModuleData& mod, bool partial )
     if (!pAddHandler)
         return pAddHandler.status;
 
-    (*a)->reset();
+    auto a = AsmFactory::GetAssembler( mod.type );
+
     a->GenPrologue();
-
     a->GenCall( pAddHandler->procAddress, { 0, _pVEHCode.ptr() } );
-
     proc.remote().AddReturnWithEvent( *a, mod.type );
     a->GenEpilogue();
 

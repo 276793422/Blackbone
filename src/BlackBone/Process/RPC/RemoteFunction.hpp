@@ -3,25 +3,31 @@
 #include "../../Asm/IAsmHelper.h"
 #include "../Process.h"
 
+#include <type_traits>
+
 // TODO: Find more elegant way to deduce calling convention
 //       than defining each one manually
 
 namespace blackbone
 {
-template< typename R, typename... Args >
+template<typename R, typename... Args>
 class RemoteFunctionBase
 {
 public:
-    typedef typename std::conditional<std::is_same<R, void>::value, int, R>::type ReturnType;
-
-    template<bool...> struct bool_pack;
-    template<bool... bs>
-    using all_true = std::is_same<bool_pack<bs..., true>, bool_pack<true, bs...>>;
+    using ReturnType = std::conditional_t<std::is_same_v<R, void>, int, R>;
 
     struct CallArguments
     {
         CallArguments( const Args&... args )
-            : arguments( { args... } ) { }
+            : arguments{ AsmVariant( args )... }
+        { 
+        }
+
+        template<size_t... S>
+        CallArguments( const std::tuple<Args...>& args, std::index_sequence<S...> )
+            : arguments{ std::get<S>( args )... }
+        {
+        }
 
         // Manually set argument to custom value
         void set( int pos, const AsmVariant& newVal )
@@ -40,38 +46,38 @@ public:
         , _conv( conv )
     {
         static_assert(
-            all_true<!std::is_reference<Args>::value...>::value,
+            !std::disjunction_v<std::is_reference<Args>...>,
             "Please replace reference type to pointer type in function type specification"
             );
     }
 
-#pragma warning(disable : 4127)
     call_result_t<ReturnType> Call( CallArguments& args, ThreadPtr contextThread = nullptr )
     {
-        ReturnType result;
+        ReturnType result = {};
         uint64_t tmpResult = 0;
         NTSTATUS status = STATUS_SUCCESS;
         auto a = AsmFactory::GetAssembler( _process.core().isWow64() );
 
         // Ensure RPC environment exists
-        status = _process.remote().CreateRPCEnvironment( contextThread == _process.remote().getWorker(), contextThread != nullptr );
+        auto mode = contextThread == _process.remote().getWorker() ? Worker_CreateNew : Worker_None;
+        status = _process.remote().CreateRPCEnvironment( mode, contextThread != nullptr );
         if (!NT_SUCCESS( status ))
             return call_result_t<ReturnType>( result, status );
 
         // FPU check
-        constexpr bool isFloat = std::is_same<ReturnType, float>::value;
-        constexpr bool isDouble = std::is_same<ReturnType, double>::value || std::is_same<ReturnType, long double>::value;
+        constexpr bool isFloat = std::is_same_v<ReturnType, float>;
+        constexpr bool isDouble = std::is_same_v<ReturnType, double> || std::is_same_v<ReturnType, long double>;
 
         // Deduce return type
         eReturnType retType = rt_int32;
 
-        if (isFloat)
+        if constexpr (isFloat)
             retType = rt_float;
-        else if (isDouble)
+        else if constexpr (isDouble)
             retType = rt_double;
-        else if (sizeof( ReturnType ) == sizeof( uint64_t ))
+        else if constexpr (sizeof( ReturnType ) == sizeof( uint64_t ))
             retType = rt_int64;
-        else if (!std::is_reference<ReturnType>::value && sizeof( ReturnType ) > sizeof( uint64_t ))
+        else if constexpr (!std::is_reference_v<ReturnType> && sizeof( ReturnType ) > sizeof( uint64_t ))
             retType = rt_struct;
 
         _process.remote().PrepareCallAssembly( *a, _ptr, args.arguments, _conv, retType );
@@ -101,7 +107,6 @@ public:
 
         return call_result_t<ReturnType>( result, STATUS_SUCCESS );
     }
-#pragma warning(default : 4127)
 
 private:
     Process& _process;
@@ -110,11 +115,11 @@ private:
 };
 
 // Remote function pointer
-template< typename Fn >
+template<typename Fn>
 class RemoteFunction;
 
 #define DECLPFN(CALL_OPT, CALL_DEF) \
-template< typename R, typename... Args > \
+template<typename R, typename... Args> \
 class RemoteFunction < R( CALL_OPT*)(Args...) > : public RemoteFunctionBase<R, Args...> \
 { \
 public: \
@@ -127,6 +132,12 @@ public: \
     call_result_t<ReturnType> Call( const Args&... args, ThreadPtr contextThread = nullptr ) \
     { \
         CallArguments a( args... ); \
+        return RemoteFunctionBase::Call( a, contextThread ); \
+    } \
+\
+    call_result_t<ReturnType> Call( const std::tuple<Args...>& args, ThreadPtr contextThread = nullptr ) \
+    { \
+        CallArguments a( args, std::index_sequence_for<Args...>() ); \
         return RemoteFunctionBase::Call( a, contextThread ); \
     } \
 \

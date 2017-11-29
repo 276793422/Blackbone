@@ -143,6 +143,7 @@ typedef enum _WinVer
     WINVER_10    = 0x0A00,
     WINVER_10_AU = 0x0A01,
     WINVER_10_CU = 0x0A02,
+    WINVER_10_FC = 0x0A03,
 } WinVer;
 
 extern PLIST_ENTRY PsLoadedModuleList;
@@ -158,6 +159,7 @@ typedef struct _DYNAMIC_DATA
 
     ULONG KExecOpt;         // KPROCESS::ExecuteOptions 
     ULONG Protection;       // EPROCESS::Protection
+    ULONG EProcessFlags2;   // EPROCESS::Flags2
     ULONG ObjTable;         // EPROCESS::ObjectTable
     ULONG VadRoot;          // EPROCESS::VadRoot
     ULONG NtProtectIndex;   // NtProtectVirtualMemory SSDT index
@@ -218,8 +220,8 @@ NTSTATUS
 NTAPI
 ZwProtectVirtualMemory(
     IN HANDLE ProcessHandle,
-    IN PVOID* BaseAddress,
-    IN SIZE_T* NumberOfBytesToProtect,
+    IN OUT PVOID* BaseAddress,
+    IN OUT SIZE_T* NumberOfBytesToProtect,
     IN ULONG NewAccessProtection,
     OUT PULONG OldAccessProtection 
     );
@@ -231,8 +233,8 @@ NTSTATUS
 NTAPI
 ZwProtectVirtualMemory( 
     IN HANDLE ProcessHandle,
-    IN PVOID* BaseAddress,
-    IN SIZE_T* NumberOfBytesToProtect,
+    IN OUT PVOID* BaseAddress,
+    IN OUT SIZE_T* NumberOfBytesToProtect,
     IN ULONG NewAccessProtection,
     OUT PULONG OldAccessProtection
     );

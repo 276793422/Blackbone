@@ -10,8 +10,8 @@
 namespace blackbone
 {
 
-typedef uint64_t ptr_t;     // Generic pointer in remote process
-typedef ptr_t    module_t;  // Module base pointer
+using ptr_t = uint64_t;     // Generic pointer in remote process
+using module_t = ptr_t;  // Module base pointer
 
 // Type of barrier
 enum eBarrier
@@ -64,7 +64,9 @@ struct ModuleData
     std::wstring fullPath;  // Full file path
     uint32_t size;          // Size of image
     eModType type;          // Module type
+    ptr_t ldrPtr;           // LDR_DATA_TABLE_ENTRY_BASE_T address
     bool manual;            // Image is manually mapped
+
 
     bool operator ==(const ModuleData& other) const
     {
@@ -77,6 +79,6 @@ struct ModuleData
     }
 };
 
-typedef std::shared_ptr<const ModuleData> ModuleDataPtr;
+using ModuleDataPtr = std::shared_ptr<const ModuleData>;
 
 }

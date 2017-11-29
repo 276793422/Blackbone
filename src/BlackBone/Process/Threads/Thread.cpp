@@ -17,7 +17,7 @@ Thread::Thread( HANDLE handle, ProcessCore* core )
     : _core( core )
     , _handle( handle )
 {
-    _id = (handle != NULL ? GetThreadIdT( handle ) : 0);
+    _id = (handle ? GetThreadIdT( handle ) : 0);
 }
 
 Thread::~Thread()
@@ -56,7 +56,8 @@ bool Thread::Suspend()
         return true;
     
     // Target process is x86 and not running on x86 OS
-    if (_core->isWow64() && !_core->native()->GetWow64Barrier().x86OS)
+    const auto& barrier = _core->native()->GetWow64Barrier();
+    if (barrier.type == wow_64_32 && !barrier.x86OS)
         return (SAFE_CALL(Wow64SuspendThread, _handle ) != -1);
     else
         return (SuspendThread( _handle ) != -1);
@@ -80,6 +81,9 @@ bool Thread::Resume()
 /// <returns>true if suspended</returns>
 bool Thread::Suspended()
 {
+    if (_id == GetCurrentThreadId())
+        return false;
+
     auto count = (_core->isWow64() && !_core->native()->GetWow64Barrier().x86OS)
         ? SAFE_CALL( Wow64SuspendThread, _handle )
         : SuspendThread( _handle );
@@ -97,7 +101,7 @@ bool Thread::Suspended()
 /// <returns>Status code</returns>
 NTSTATUS Thread::GetContext( _CONTEXT32& ctx, DWORD flags /*= CONTEXT_ALL*/, bool dontSuspend /*= false*/ )
 {
-    NTSTATUS status = STATUS_UNSUCCESSFUL;
+    NTSTATUS status = STATUS_INVALID_THREAD;
 
     memset( &ctx, 0x00, sizeof( ctx ) );
     ctx.ContextFlags = flags;
@@ -121,7 +125,7 @@ NTSTATUS Thread::GetContext( _CONTEXT32& ctx, DWORD flags /*= CONTEXT_ALL*/, boo
 /// <returns>Status code</returns>
 NTSTATUS Thread::GetContext( _CONTEXT64& ctx, DWORD flags /*= CONTEXT64_ALL*/, bool dontSuspend /*= false*/ )
 {
-    NTSTATUS status = STATUS_UNSUCCESSFUL;
+    NTSTATUS status = STATUS_INVALID_THREAD;
 
     memset( &ctx, 0x00, sizeof(ctx) );
     ctx.ContextFlags = flags;
@@ -144,7 +148,7 @@ NTSTATUS Thread::GetContext( _CONTEXT64& ctx, DWORD flags /*= CONTEXT64_ALL*/, b
 /// <returns>Status code</returns>
 NTSTATUS Thread::SetContext( _CONTEXT32& ctx, bool dontSuspend /*= false */ )
 {
-    NTSTATUS status = STATUS_UNSUCCESSFUL;
+    NTSTATUS status = STATUS_INVALID_THREAD;
     if (dontSuspend || Suspend())
     {
         status = _core->native()->SetThreadContextT( _handle, ctx );
@@ -163,7 +167,7 @@ NTSTATUS Thread::SetContext( _CONTEXT32& ctx, bool dontSuspend /*= false */ )
 /// <returns>Status code</returns>
 NTSTATUS Thread::SetContext( _CONTEXT64& ctx, bool dontSuspend /*= false*/ )
 {
-    NTSTATUS status = STATUS_UNSUCCESSFUL;
+    NTSTATUS status = STATUS_INVALID_THREAD;
     if(dontSuspend || Suspend())
     {
         status = _core->native()->SetThreadContextT( _handle, ctx );
@@ -352,12 +356,8 @@ uint64_t Thread::execTime()
 /// </summary>
 void Thread::Close()
 {
-    if (_handle && _handle != INVALID_HANDLE_VALUE)
-    {
-        CloseHandle( _handle );
-        _handle = NULL;
-        _id = 0;
-    }
+    _handle.reset();
+    _id = 0;
 }
 
 /// <summary>

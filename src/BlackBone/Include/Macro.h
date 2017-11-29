@@ -79,7 +79,7 @@ struct CompileTimeSizeOf;
 template<typename T, typename U>
 constexpr size_t offsetOf( U T::*member )
 {
-    return (size_t)&((T*)nullptr->*member);
+    return reinterpret_cast<size_t>(&(reinterpret_cast<T*>(nullptr)->*member));
 }
 
 template<typename T, typename U>
@@ -114,7 +114,7 @@ inline size_t Align( size_t val, size_t alignment )
 // Offset of 'LastStatus' field in TEB
 #define LAST_STATUS_OFS (0x598 + 0x197 * WordSize)
 
-typedef long NTSTATUS;
+using NTSTATUS = long;
 
 /// <summary>
 /// Get last NT status
