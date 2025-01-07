@@ -9,7 +9,6 @@
 
 namespace blackbone
 {
-
 enum LdrRefFlags
 {
     Ldr_None      = 0x00,   // Do not create any reference
@@ -34,7 +33,6 @@ class NtLdr
 {
 public:
     BLACKBONE_API NtLdr( class Process& proc );
-    BLACKBONE_API ~NtLdr( void );
 
     /// <summary>
     /// Initialize some loader stuff
@@ -57,7 +55,7 @@ public:
     /// <param name="mod">Module data</param>
     /// <param name="tlsPtr">TLS directory of target image</param>
     /// <returns>Status code</returns>
-    BLACKBONE_API NTSTATUS AddStaticTLSEntry( const NtLdrEntry& mod, ptr_t tlsPtr );
+    BLACKBONE_API NTSTATUS AddStaticTLSEntry( NtLdrEntry& mod, ptr_t tlsPtr );
 
     /// <summary>
     /// Create module record in LdrpInvertedFunctionTable
@@ -66,6 +64,14 @@ public:
     /// <param name="mod">Module data</param>
     /// <returns>true on success</returns>
     BLACKBONE_API bool InsertInvertedFunctionTable( NtLdrEntry& mod );
+
+    /// <summary>
+    /// Free static TLS
+    /// </summary>
+    /// <param name="mod">Target module</param>
+    /// <param name="noThread">Don't create new threads during remote call</param>
+    /// <returns>Status code</returns>
+    BLACKBONE_API NTSTATUS UnloadTLS( const NtLdrEntry& mod, bool noThread = false );
 
     /// <summary>
     /// Unlink module from Ntdll loader
@@ -156,7 +162,7 @@ private:
     /// <summary>
     /// Hash image name
     /// </summary>
-    /// <param name="str">Iamge name</param>
+    /// <param name="str">Image name</param>
     /// <returns>Hash</returns>
     ULONG HashString( const std::wstring& str );
 
@@ -182,7 +188,7 @@ private:
     /// </summary>
     /// <param name="mod">Module data</param>
     /// <returns>Address of removed record</returns>
-    template<typename T> 
+    template<typename T>
     ptr_t UnlinkFromLdr( const ModuleData& mod );
 
     /// <summary>
@@ -212,7 +218,7 @@ private:
     ptr_t UnlinkTreeNode( const ModuleData& mod, ptr_t ldrEntry, bool noThread = false );
 
     NtLdr( const NtLdr& ) = delete;
-    NtLdr& operator =(const NtLdr&) = delete;
+    NtLdr& operator =( const NtLdr& ) = delete;
 
 private:
     class Process& _process;                // Process memory routines
@@ -224,6 +230,4 @@ private:
     eModType _initializedFor = mt_unknown;  // Loader initialization target
     std::map<ptr_t, ptr_t> _nodeMap;        // Allocated native structures
 };
-
 }
-
